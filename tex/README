@@ -1,0 +1,82 @@
+ctex is a collection of macro packages and document classes
+for LaTeX Chinese typesetting.
+
+This package is licensed in LPPL.
+
+The authors and contributors of this package are:
+
+    * Wu Lingyun <aloft@ctex.org>
+    * Jiang Jiang <gzjjgod@gmail.com>
+    * Wang Yue <yuleopen@gmail.com>
+    * Liu Haiyang <leoliu.pku@gmail.com>
+    * Li Yanrui <liyanrui.m2@gmail.com>
+    * Chen Zhichu <zhichu.chen@gmail.com>
+    * Li Qing <sobenlee@gmail.com>
+    * Liam Huang <liamhuang0205@gmail.com>
+
+If you are interested in the process of development you
+may observe
+
+    https://github.com/CTeX-org/ctex-kit
+
+Report feedback in the Issues section of ctex-kit project,
+or in [ctex](http://bbs.ctex.org) forum.
+
+This package consists of the file ctex.dtx, and the derived files
+
+    ctex.pdf,
+    ctex.ins,
+    ctex.sty,
+    ctexsize.sty,
+    ctexheading.sty,
+    ctexart.cls,
+    ctexbook.cls,
+    ctexrep.cls,
+    ctexcap.sty,
+    ctexhook.sty,
+    ctexpatch.sty,
+    ctex-c5size.clo,
+    ctex-cs4size.clo,
+    ctex-article.def,
+    ctex-book.def,
+    ctex-report.def,
+    ctex-scheme-plain.def,
+    ctex-scheme-plain-article.def,
+    ctex-scheme-plain-book.def,
+    ctex-scheme-plain-report.def,
+    ctex-scheme-chinese.def,
+    ctex-scheme-chinese-article.def,
+    ctex-scheme-chinese-book.def,
+    ctex-scheme-chinese-report.def,
+    ctex-name-gbk.cfg,
+    ctex-name-utf8.cfg,
+    ctex.cfg,
+    ctexopts.cfg,
+    ctex-engine-pdftex.def,
+    ctex-engine-xetex.def,
+    ctex-engine-luatex.def,
+    c19rm.fd,
+    c19sf.fd,
+    c19tt.fd,
+    c70rm.fd,
+    c70sf.fd,
+    c70tt.fd,
+    ctex-fontset-windows.def,
+    ctex-fontset-windowsnew.def,
+    ctex-fontset-windowsold.def,
+    ctex-fontset-adobe.def,
+    ctex-fontset-fandol.def,
+    ctex-fontset-mac.def,
+    ctex-fontset-founder.def,
+    ctex-fontset-ubuntu.def,
+    ctexspa.def,
+    ctexpunct.spa,
+    ctexmakespa.tex,
+    ctexspamacro.tex,
+    zhadobefonts.tex,
+    zhfandolfonts.tex,
+    zhfounderfonts.tex,
+    zhubuntufonts.tex,
+    zhwindowsfonts.tex, and
+    README (this file).
+

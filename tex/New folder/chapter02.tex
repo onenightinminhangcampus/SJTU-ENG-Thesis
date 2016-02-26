@@ -1,0 +1,335 @@
+%# -*- coding: utf-8-unix -*-
+\chapter{内点法与科学计算}
+\section{引言}
+The interior point method has a long history\parencite{Jacek}, and has been developed intensively by integrating with newly developed mathematical methodologies. As an algorithm for scientific computing purpose, possible enhancements are not limited to mathematical and linear algebra approach. Parallelization and compressing algorithm also plays an important role in the real world fast problem solving, as the dominant computation cost observed in an interior point algorithm is solving the linear equation \eqref{eq:chap4:firstlinear} \parencite{kang2015nonlinear}. Calculating a large scale sparse linear equation parallel-wise with low memory storage on both CPU and GPU has become one of the most heated topic in the field of scientific computing.  Since it is also essential for advanced large-scale optimization algorithm, it is particularly of our interest to develop a state-of-art memory-decreasing optimization algorithm using latest technique.
+\section{Mehrotra内点法}
+\subsection{内点法概述}
+We starts the discussion by first investigating convexity of a optimization problem. Among all the general non-linear problems, of particular interest is the Convex Optimization Problems (COP) since they always have a global minimizer or maximizer. A general COP can be written as:
+\begin{equation}
+min f(x)
+\end{equation}
+s.t.
+$$
+x\in S \subseteq \mathbb{R}^n
+$$
+Wherein both of the function and the constraints must be convex. The intuition for testing the convexity is to draw a straight line between any two points within a set or a function, and check whether all of the points on the line lie in the same set or function. If satisfied, the set or the function is convex. And we have the following mathematical descriptions for convexity.
+\begin{defn}\label{thm:1}
+	A set $S\subseteq \mathbb{R}^n$ is a convex set if for any $x\in S$ and $y\in S$, $\lambda x+(1-\lambda)y\in S,$ $\forall \lambda \in [0,1]$.
+\end{defn}
+\begin{defn}\label{thm:2}
+	Let $S$ be a convex set, a function $f(x):S\rightarrow \mathbb{R}$ is a convex function if $f(\lambda x+(1-\lambda)y)\leq \lambda f(x)+(1-\lambda)f(y),$ $\forall x,y \in S$ and $\lambda \in [0,1]$.
+\end{defn}
+More practically, convexity can be tested by checking the Hessian of a function defined on a convex set. If $H(x)$ is positive semi-definite (PSD) for all $x\in S$, then $f(x)$ is convex.
+
+Next we introduce the dual problem for a nonlinear optimization problem. To find out the dual, we approach this goal by introducing the Lagrangian principle. First consider the following general non-linear problem:
+\begin{equation}\label{eqgp}
+min\ f(x)
+\end{equation}
+s.t.
+$$
+g_i(x)\leq 0 \ ,i\in\{1,...,m\}
+$$
+$$
+h_j(x)=0 \ ,j\in\{1,...,p\}
+$$
+Since the main target is to implement the interior point method, the general non-linear problem is first revised by a barrier reformulation.
+\begin{equation}\label{eqbr}
+min\ \phi(x)=f(x)-\mu \sum\limits_{i=1}^n ln(-g(x)_i) ,\ \ \mu>0
+\end{equation}
+s.t.
+$$
+h_j(x)=0 \ ,j\in\{1,...,p\}
+$$
+The Lagrangian of the Equation \eqref{eqbr} is
+\begin{equation}\label{eqlg}
+L(x,\pi)=f(x)-\mu \sum\limits_{i=1}^n ln(-g(x)_i)-\pi^T h(x)
+\end{equation}
+This is also called the Lagrangian dual. Since it is not necessary to write out an explicit dual problem, the discussion stops here and the results will be instructive for the next part.
+
+As the outer iteration of a interior point algorithm is setting barrier. The Karush–Kuhn–Tucker (KKT) condition for the barrier problem is derived by fist differentiate Equation \eqref{eqlg}
+\begin{equation}\label{eqlgd1}
+\dfrac{dL}{dx}=\nabla f(x)-\mu X^{-1}-{\nabla h(x)}^T \pi=0
+\end{equation}
+\begin{equation}\label{eqlgd2}
+\dfrac{dL}{d\pi}=h(x)=0
+\end{equation}
+Where $X=diag(-g_i(x))$. Now let $z=\mu X^{-1} e$, then $XZe=\mu e$, where $Z=diag(z)$. Then Equation \eqref{eqlgd1} and \eqref{eqlgd2} becomes the KKT condition for the barrier problem.
+\begin{equation}\label{eqcon1}
+\nabla_x L(x,\pi,z)=\nabla {h(x)}^T \pi+z-\nabla f(x)=0
+\end{equation}
+\begin{equation}\label{eqcon2}
+h_i(x)=0
+\end{equation}
+\begin{equation}\label{eqcon3}
+XZe=\mu e
+\end{equation}
+
+The primal-dual interior point method can then be developed based on the re-formalized KKT condition. This algorithm has over 28 years history and completely restructured the field of optimization from linear to non-linear since its appearance as was summarized by {\sc Jacek Gondzio} [2012] in \cite{Jacek}.
+In 1992, {\sc Sanjay Mehrotra} \cite{Mehrotra} proposed a practical implementation of interior point method by computing a predictor and a corrector term. Then the search direction is adopted as the summarization of the two items. This strategy significantly reduces the iterations to converge and widely used in linear programming afterwards. And because of the similarity of quadratic programming and linear programming, it was then extended to QP problems, as was intensively implemented in \cite{Kwon} by {\sc Roy Kwon}  for financial applications. 
+The proposed algorithm to implement Mehrotra method for a much more general nonlinear problem is as follows. First, KKT Condition in \eqref{eqcon1},\eqref{eqcon2} and \eqref{eqcon3} defines a central path:
+\begin{defn}
+	The central path $\Gamma$ is the set of all vectors satisfying conditions \eqref{eqcon1},\eqref{eqcon2} and \eqref{eqcon3} for some $\mu>0$ i.e.
+	$$
+	\Gamma=\{(x,\pi,z)\mid \nabla {h(x)}^T \pi+z=\nabla f(x), h_i(x)=0, XZe=\mu e, \mu>0\}
+	$$
+\end{defn}
+As $\mu$ goes to infinity, the points on the central path converge towards the optimal solution of the primal and its dual problem. In the next step, the Newton-Raphson Method for KKT conditions of the barier problem is applied. For a given $\mu>0$
+\begin{equation}
+F(x,\pi,z)=
+\begin{bmatrix}
+\nabla {h(x)}^T \pi+z-\nabla f(x)\\
+h(x)\\
+XZe
+\end{bmatrix}
+=
+\begin{bmatrix}
+0\\
+0\\
+\mu e
+\end{bmatrix}
+\end{equation}
+The Newton direction $d$ is obtained by solving the system
+\begin{equation}\label{eqnt}
+[\nabla F(x,\pi,z)]d=-F(x,\pi,z)
+\end{equation}
+As {\sc Ioannis \& Ber\c{c}} [2004] clarified in \cite{ioannis}, Equation \eqref{eqnt} can then be transformed into
+\begin{equation}\label{eqnt2}
+\begin{bmatrix}
+\nabla^2_{xx} L(x,\pi,z) & \nabla h(x)^T & I\\
+\nabla h(x) & 0 & 0\\
+\nabla X_xZ & 0 & X
+\end{bmatrix}
+\begin{bmatrix}
+d_x\\
+d_\pi\\
+d_z
+\end{bmatrix}
+=
+\begin{bmatrix}
+0\\
+0\\
+-XZe+\mu e
+\end{bmatrix}
+\end{equation}
+To solve the linear equation directly, we further write Equation \eqref{eqnt2} in a equivalent form to solve this equations set.
+\begin{equation}
+d_{\pi}=[\nabla h(x)(\nabla_x X)^{-1}X\nabla h(x)^T]^{-1}\nabla h(x)(\nabla_x X)^{-1}(x-\mu Z^{-1}e-\nabla^2_{xx}L(x,\pi,z))
+\end{equation}
+\begin{equation}
+d_z=\nabla h(x)^T[\nabla h(x)(\nabla_x X)^{-1}X\nabla h(x)^T]^{-1}\nabla h(x)(\nabla_x X)^{-1}(-x+\mu Z^{-1}e+\nabla^2_{xx}L(x,\pi,z))-\nabla^2_{xx}L(x,\pi,z)
+\end{equation}
+\begin{equation}
+\begin{split}
+d_x=-(\nabla X_x)^{-1}Z^{-1}X[\nabla h(x)(\nabla_x X)^{-1}X\nabla h(x)^T]^{-1}\nabla h(x)(\nabla_x X)^{-1}(x-\mu Z^{-1}e-\nabla^2_{xx}L(x,\pi,z))+\\
+(\nabla X_x)^{-1}Z^{-1}(XZe-\mu e)
+\end{split}
+\end{equation}
+\subsection{预估矫正对偶内点法}
+The main idea of a predictor-corrector algorithm is to solve the affine direction before solving the actual direction\parencite{Kwon}:
+\begin{equation}\label{eq:chap4:affine}
+\begin{bmatrix}
+\nabla^2_{xx} L(x(k),\pi(k),z(k))     & \nabla h(x(k))^T    & I \\
+\nabla h(x(k))     & 0     & 0 \\
+\nabla X_x(k)Z(k)  & 0     &  X(k) 
+\end{bmatrix}
+\begin{bmatrix}
+d_x^{aff}\\
+d_\pi^{aff}\\
+d_z^{aff}
+\end{bmatrix}
+=
+\begin{bmatrix}
+-r_d^{(k)}\\
+-r_p^{(k)}\\
+-X^{(k)}Z^{(k)}e
+\end{bmatrix}
+\end{equation}
+Where
+\begin{equation}
+X^{(k)}=diag(-g_i(x^{(k)}))
+\end{equation}
+\begin{equation}
+Z^{(k)}=diag(z^{(k)})
+\end{equation}
+\begin{equation}
+-r_p^{(k)}=h(x(k))
+\end{equation}
+\begin{equation}
+-r_d^{(k)}=\nabla {h(x(k))}^T \pi(k)+z(k)-\nabla f(x(k))
+\end{equation}
+Then calculate the following affine terms:
+\begin{equation}\label{eq:chap4:affinealpha}
+({\alpha}^{aff})^{(k)}=min\{1,\min_{i:{(d_{x^{(k)}}^{aff})}_i<0}-\frac{x_i^{(k)}}{{(d_{x^{(k)}}^{aff})}_i},\min_{i:{(d_{z^{(k)}}^{aff})}_i<0}-\frac{z_i^{(k)}}{{(d_{z^{(k)}}^{aff})}_i}\}
+\end{equation}
+\begin{equation}\label{eq:chap4:yk}
+y^{(k)}=\frac{{(x^{(k)})}^Tz{(k)}}{n}=1
+\end{equation}
+\begin{equation}\label{eq:chap4:ykaffine}
+y_{aff}^{(k)}=\frac{
+	{(x^{(k)}+\alpha^{aff}d_{x^{(k)}}^{aff})}^T
+	(z^{(k)}+\alpha^{aff}d_{z^{(k)}}^{aff})
+}{n}
+\end{equation}
+\begin{equation}\label{eq:chap4:tauk}
+\tau^{(k)}=({\frac{y^{k}_{aff}}{y^{(k)}}})^3
+\end{equation}
+
+Then we solve for the actual search direction
+$
+{\begin{bmatrix}
+	d_x& d_\pi& d_z
+	\end{bmatrix}}^T
+$
+from the following matrix equation
+\begin{equation}\label{eq:chap4:firstlinear}
+\begin{bmatrix}
+\nabla^2_{xx} L(x(k),\pi(k),z(k))     & \nabla h(x(k))^T    & I \\
+\nabla h(x(k))     & 0     & 0 \\
+\nabla X_x(k)Z(k)  & 0     &  X(k) 
+\end{bmatrix}
+\begin{bmatrix}
+d_x\\
+d_\pi\\
+d_z
+\end{bmatrix}
+=
+\begin{bmatrix}
+-r_d^{(k)}\\
+-r_p^{(k)}\\
+-X^{(k)}Z^{(k)}e+D_{x^{(k)}}D_{z^{(k)}}e+\tau^{(k)}y^{(k)}e
+\end{bmatrix}
+\end{equation}
+Where
+$
+D_{x^{(k)}}=diag(d_x^{aff})
+$
+and
+$
+D_{Z^{(k)}}=diag(d_z^{aff})
+$.
+
+Step lengths are calculated based on:
+\begin{equation}\label{eq:chap4:affinexsl}
+{\alpha}_x^{max}=min\{1,\min_{i:{(d_{x})}_i<0}-\frac{x_i^{(k)}}{{(d_{x})}_i}\}
+\end{equation}
+\begin{equation}\label{eq:chap4:affinezsl}
+{\alpha}_z^{max}=min\{1,\min_{i:{(d_{x})}_i<0}-\frac{z_i^{(k)}}{{(d_{z})}_i}\}
+\end{equation}
+\begin{equation}\label{eq:chap4:alpha}
+\alpha=min\{1,\eta\alpha_x^{max},\eta\alpha_z^{max}\}
+\end{equation}
+Then compute the next iteration accordingly:
+\begin{equation}\label{eq:chap4:xk1}
+x^{(k+1)}=x^{(k)}+\alpha d_x
+\end{equation}
+\begin{equation}\label{eq:chap4:pik1}
+\pi^{(k+1)}=\pi^{(k)}+\alpha d_\pi
+\end{equation}
+\begin{equation}\label{eq:chap4:zk1}
+z^{(k+1)}=z^{(k)}+\alpha d_z
+\end{equation}
+
+Finally the terminating criteria is given as:
+\begin{equation}\label{eq:chap4:term1}
+\|h(x(k))\|\le\varepsilon
+\end{equation}
+\begin{equation}\label{eq:chap4:term2}
+\|\nabla {h(x(k))}^T \pi(k)+z(k)-\nabla f(x(k))\|\le\varepsilon
+\end{equation}
+\begin{equation}\label{eq:chap4:term3}
+(x^{(k+1)})^Tz^{(k+1)}\le\varepsilon
+\end{equation}
+
+Algorithm \ref{algo:mehotra} is a fundamental predictor-corrector Mehotra algorithm which is the basis of inverse kinematics calculation, and it will be expanded in the following discussion.
+\begin{center}
+	\captionof{algorithm}{Mehotra Interior Point Algorithm}
+	\label{algo:mehotra}
+	\begin{algorithmic}[1]
+		\STATE Obtain an initial feasible or infeasible solution. Set tolerance $10^{-8}<\varepsilon<10^{-6}$ , and the counter $k=0$. Also set the step length damping rate $0.9<\eta<1$.
+		\FOR {k=0,1,... until the termination criteria in \eqref{eq:chap4:term1}, \eqref{eq:chap4:term2} and \eqref{eq:chap4:term3} are met}
+		\STATE Calculate affine search direction using \eqref{eq:chap4:affine}, After solving finished, we obtain ${\begin{bmatrix}d_x^{aff}& d_\pi^{aff}& d_z^{aff}\end{bmatrix}}^T$. 
+		\STATE First, compute ${\alpha}^{aff},\;y^{k},\;y^{k}_{aff}$ and $\tau^{(k)}$ by \eqref{eq:chap4:affinealpha}, \eqref{eq:chap4:yk}, \eqref{eq:chap4:ykaffine} and \eqref{eq:chap4:tauk}, then obtain the search direction $
+		{\begin{bmatrix}
+			d_x& d_\pi& d_z
+			\end{bmatrix}}^T
+		$ using \eqref{eq:chap4:firstlinear}.
+		\STATE Compute $\alpha_x$, $\alpha_z$ by \eqref{eq:chap4:affinexsl} and \eqref{eq:chap4:affinezsl}. Then calculate step length $\alpha$ using \eqref{eq:chap4:alpha}.
+		\STATE Calculate $x^{k+1}$, $\pi^{k+1}$ and $z^{k+1}$ using \eqref{eq:chap4:xk1}, \eqref{eq:chap4:pik1} and \eqref{eq:chap4:zk1}. Increment $k$, go to next iteration.
+		\ENDFOR
+	\end{algorithmic}
+	\vspace{-5pt}\hrulefill
+\end{center}
+\section{迭代线性求解器}
+In general, a linear solver solves:
+\begin{equation}
+Ax=b
+\end{equation}
+
+Though we can easily come to $b=A^{-1}x$ if $A$ is invertible, the matrix we are dealing is actually very sparse and it is not practical to store it explicitly. Both iterative and direct method are applicable to solve this equation, though it is hard to tell which one is superior than the other, they are suitable for different situations. In our case, where the matrix is sparse and large-scale, the iterative approach is preferred as it does not require huge memory storage and able to distribute computation to limited sparse matrix-vector multiplication. The algorithm starts with an approximation of the solution and terminates when less than a pre-specified tolerance, here the tolerance is adjusted based on the interior point algorithm. 
+\subsection{共轭梯度法}
+The most commonly used iterative solver is based on conjugate gradient (CG) method described as follows:
+
+First, the linear equation is transformed to a minimization problem
+\begin{equation}
+min\:\phi(x)=\frac{1}{2}x^THx+bx
+\end{equation}
+The steepest descent direction is simply the derivative the above equation:
+\begin{equation}
+\nabla \phi(x)=\colorbox{BurntOrange}{$Hx$}-b
+\end{equation}
+The conjugate direction is
+\begin{equation}\label{eq:chap4:conjugate}
+d_{k+1}=-\phi(x)_{k+1}+\beta_k d_k
+\end{equation}
+Many forms are available to obtain a feasible $\beta_k$, here we present the most frequently used Polak and Ribiere equation\parencite{dai1999nonlinear}:
+\begin{equation}\label{eq:chap4:betak}
+\beta_k=\frac{\nabla \phi(x)_{k+1}^T(\nabla \phi(x)_{k+1}-\nabla \phi(x)_k)}{\nabla \phi(x)_k^T\nabla \phi(x)_k}
+\end{equation}
+For each iteration, a line search is adopted to calculate a step length:
+\begin{equation}\label{eq:chap4:conjugatestep}
+min \: m_i(t)=f(v_i+td_i)
+\end{equation}
+While the explicit result is 
+\begin{equation}\label{eq:chap4:tmin}
+t_{min}=-\frac{d_i^T \nabla \phi(v)_i}{d_i^T \colorbox{BurntOrange}{$H d_i$}}
+\end{equation}
+Thus the iteration can be formulated as 
+\begin{equation}
+x_{i+1}=x_{i}+t_{min}d_i
+\end{equation}
+
+Note that only the colored part involve matrix operation and it is a sparse matrix vector multiplication for our particular problem. 
+\begin{center}
+	\captionof{algorithm}{Conjugate Gradient Algorithm}
+	\label{algo:sum_I_want}
+	\begin{algorithmic}[1]
+		\STATE Initialize $x_0$, $d_0$, 
+		\STATE Calculate $t_0$ using \eqref{eq:chap4:tmin}
+		\FOR {i=0,1,..., until an pre-defined termination test satisfied for $x_i$}
+		\STATE Calculate $\beta_k$ using \eqref{eq:chap4:betak}
+		\STATE Compute conjugate direction using \eqref{eq:chap4:conjugate}
+		\STATE Compute step length using line search \eqref{eq:chap4:conjugatestep}.
+		\ENDFOR
+	\end{algorithmic}
+	\vspace{-5pt}\hrulefill
+\end{center}
+\subsection{共轭梯度法的改进与并行化}
+\section{SpMV算法}
+A sparse matrix vector multiplication algorithm basically solves 
+\begin{equation}
+y=Ax
+\end{equation}
+Where input matrix $A$ is often a large scale sparse matrix, while input vector $x$ and output vector $y$ is dense. SpMV is the computational kernel of many scientific computing tasks. Though it is strongly associated with hardware processing capabilities of either a CPU or a high-end graphics processor units(GPU)\parencite{yang2011fast}, SpMV is also linked with compressing algorithm, parallel method and memory allocation strategy. On research side, we have showed that how a choice of SpMV method become decisive in computational cost for an interior point method theoretically, and this hold true for most linear algebra algorithms. On industrial side, The intensive attention this kernel received arises from the fast growing gaming and 3D entertaining industry, where graphics card manufactures like NVIDIA and AMD are spending every effort in the research of massive calculation and parallelization on GPUs. Driven by both forces, many state-of-art methods has been proposed and testified. In this section, we are presenting SpMV approach featuring good computational speed.
+\subsection{矩阵压缩格式}
+Here we start our discussion by first looking at the fundamental compressing formats.
+\subsection{压缩格式的改进与并行化}
+
+
+\section{数值工具}
+Scientific computing is an emerging multidisciplinary field that involves both mathematical, software and hardware aspects, while its application comes from all walks of life. Researchers are capable of formalize problems from science, engineering and humanity as scientific computing tasks. These problems often grows larger in size continuously, thus require the advancements in scientific computing fields keep up the fast-growing needs. In this section, we review some influencing numerical tools regarding sci-computing. 
+\subsection{BLAS/LAPACK}
+\subsection{优化数值工具}
+A good optimization software package must contains a well structured object-oriented library with both clear inheritance relationship and
+parallelization. Some prevailing nonlinear optimization libraries includes but not limited to ipopt\parencite{ipopt1}, loqo\parencite{vanderbei1999interior} and opt++\parencite{meza2007opt++} sovler, where the first two are based on line search interior point while the third one offers diversified basic algorithms for user to combine. They were all written in C++, though efforts of migrating them to Matlab has never been stopped, and OPTI Toolbox is such a great tool to lower the barrier and implement them under Matlab environment\parencite{CW12a}. In this thesis, we build prototype on Matlab with the usage of OPTI Toolbox, but analyze the details in a C++ environment. 
+\subsection{CUDA}
+\section{本章小结}
