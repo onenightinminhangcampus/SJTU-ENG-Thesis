@@ -1,6 +1,6 @@
 # What is SJTU-ENG-Thesis
 
-Full english version of the original Chinese thesis
+Full english version of the original Chinese template
 https://github.com/weijianwen/SJTUThesis
 
 # Modifications:
